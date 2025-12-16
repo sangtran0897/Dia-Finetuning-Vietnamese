@@ -219,6 +219,7 @@ class Dia:
         text_pad_value = self.config.data.text_pad_value
         max_len = self.config.data.text_length
 
+        print(f'text: {text}')
         byte_text = text.encode("utf-8")
         replaced_bytes = byte_text
 
