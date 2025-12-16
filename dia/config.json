@@ -1,3 +1,4 @@
+
 {
     "version": "0.1",
     "model": {
@@ -8,7 +9,7 @@
             "n_head": 16,
             "head_dim": 128
         },
-            "decoder": {
+        "decoder": {
             "n_layer": 18,
             "n_embd": 2048,
             "n_hidden": 8192,
@@ -24,11 +25,11 @@
         "dropout": 0.0
     },
     "training": {
-        "dtype": "float16"
+        "dtype": "bfloat16"
     },
     "data": {
-        "text_length": 256,
-        "audio_length": 512,
+        "text_length": 512,
+        "audio_length": 1536,
         "channels": 9,
         "text_pad_value": 0,
         "audio_eos_value": 1024,
