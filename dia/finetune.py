@@ -432,7 +432,7 @@ def setup_optimizer_and_scheduler(model, train_loader, train_cfg):
 
 
 
-def train_step(model, batch, dia_cfg, train_cfg, opt, sched, writer, step_in_epoch, global_step,scaler):
+def train_step(model, batch, dia_cfg, train_cfg, opt, sched, writer, step_in_epoch, global_step):
     """
     Perform a single training step: forward, loss, backward, update, log.
     Now uses per‑sample tgt_lens to mask out padding after each EOS,
