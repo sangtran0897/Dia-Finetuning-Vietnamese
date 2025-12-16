@@ -548,6 +548,7 @@ class Dia:
             prompt_len_inc_bos = prefill_len
             prefill_tgt_pos = torch.arange(prefill_len, device=self.device).unsqueeze(0).expand(2, -1)
             prefill_tgt_padding_mask = ~generated_BxTxC.eq(audio_pad_value).all(dim=2)
+            # (thay cho) (generated_BxTxC != audio_pad_value).any(dim=2)
 
             prefill_self_attn_mask = self._create_attn_mask(
                 prefill_tgt_padding_mask,
@@ -610,6 +611,9 @@ class Dia:
             is_causal=False,
         )  # [B, 1, 1, S]
 
+        min_new_seconds = 12.0  # bạn có thể chọn 10–15s
+        min_new_tokens  = int(min_new_seconds * fps)
+        ignore_eos_until = current_step + min_new_tokens
         for step in range(current_step, current_step + max_tokens):
             tgt_ids_Bx1xC = generated_BxTxC[:, step, :].unsqueeze(1)
             tgt_pos_Bx1 = torch.full(
@@ -640,11 +644,8 @@ class Dia:
             cfg_logits_CxV = cond_logits_CxV + cfg_scale * (cond_logits_CxV - uncond_logits_CxV)
 
             logits_CxV = cfg_logits_CxV.reshape((-1, V))  # C, V
-            
-            ignore_eos_until = current_step + 10
             if step < ignore_eos_until:
-                logits_CxV[:, audio_eos_value] = -torch.inf
-
+                logits_CxV[:, audio_eos_value] = -torch.inf  # cấm EOS sớm
 
             # Sample next token
             pred_C = _sample_next_token(
@@ -654,6 +655,8 @@ class Dia:
                 use_cfg_filter=use_cfg_filter,
                 cfg_filter_top_k=cfg_filter_top_k,
             )
+
+
 
             generation_step_index = step - current_step
             if audio_prompt_path is None:
