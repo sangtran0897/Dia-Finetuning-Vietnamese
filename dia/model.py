@@ -414,6 +414,7 @@ class Dia:
             "vtv24",
             "vuive123",
             "zombiev4",
+            "alloy",
         ]
         LANG2BYTE.update({ch: 30 + i for i, ch in enumerate(CHANNELS)})
         # Thay thế tag thành mã byte

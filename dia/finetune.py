@@ -21,7 +21,6 @@ from datasets import load_dataset, interleave_datasets, get_dataset_config_names
 from huggingface_hub import hf_hub_download
 import math
 import gc
-from torch.cuda.amp import GradScaler
 
 import dac
 from .config import DiaConfig
@@ -237,6 +236,7 @@ CHANNELS = [
     "vtv24",
     "vuive123",
     "zombiev4",
+    "alloy",
 ]
 
 # Tự động ánh xạ channel → token (bắt đầu từ 30)
@@ -251,13 +251,13 @@ test_sentences = {
 @dataclass
 class TrainConfig:
     epochs: int = 1
-    batch_size: int = 2
-    grad_accum_steps: int = 2
+    batch_size: int = 1
+    grad_accum_steps: int = 4
     learning_rate: float = 1e-5
     warmup_steps: int = 500
     unconditional_frac: float = 0.15
-    eval_step: int = 200
-    save_step: int = 2000
+    eval_step: int = 500
+    save_step: int = 5000
     split_ratio: float = 0.997
     shuffle_buffer_size: int = None  # for streaming shuffle
     seed: int = 42                # seed for reproducibility
@@ -501,18 +501,14 @@ def train_step(model, batch, dia_cfg, train_cfg, opt, sched, writer, step_in_epo
 
     # scale + backward
     loss = loss / train_cfg.grad_accum_steps
-    scaler.scale(loss).backward()
 
 
     # step & log
 
     if (step_in_epoch + 1) % train_cfg.grad_accum_steps == 0:
         # Unscale before clipping
-        scaler.unscale_(opt)
         grad_norm = clip_grad_norm_(model.parameters(), max_norm=1e9)
     
-        scaler.step(opt)
-        scaler.update()
         opt.zero_grad()
         sched.step()
     
@@ -619,7 +615,6 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
 
     writer = SummaryWriter(train_cfg.runs_dir / train_cfg.run_name)
     model.train()
-    scaler = GradScaler()
     start_epoch = 0
     global_step = 0
     resume_ckpt = getattr(train_cfg, "resume_from", None)
@@ -629,7 +624,6 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
         model.load_state_dict(checkpoint["model"])
         opt.load_state_dict(checkpoint["optimizer"])
         sched.load_state_dict(checkpoint["scheduler"])
-        scaler.load_state_dict(checkpoint["scaler"])
         start_epoch = checkpoint.get("epoch", 0)
         global_step = checkpoint.get("global_step", 0)
 
@@ -652,7 +646,7 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
         for step_in_epoch, batch in enumerate(pbar):
             global_step += 1
             # training step
-            loss = train_step(model, batch, dia_cfg, train_cfg, opt, sched, writer, step_in_epoch, global_step, scaler)
+            loss = train_step(model, batch, dia_cfg, train_cfg, opt, sched, writer, step_in_epoch, global_step)
 
             cur_alloc = torch.cuda.memory_allocated()   # bytes currently allocated by tensors
             peak_alloc = torch.cuda.max_memory_allocated()  # bytes peak during program
@@ -677,7 +671,6 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
                 with torch.no_grad():
                     eval_step(model, val_loader, dia_cfg, dac_model, writer, global_step)
                 model.train()
-                scaler = GradScaler()
 
             # checkpoint
             if step_in_epoch and step_in_epoch % train_cfg.save_step == 0:
@@ -686,7 +679,6 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
                     "model": model.state_dict(),
                     "optimizer": opt.state_dict(),
                     "scheduler": sched.state_dict(),
-                    "scaler": scaler.state_dict(),
                     "epoch": epoch,
                     "global_step": global_step
                 }, ckpt)
@@ -698,7 +690,6 @@ def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: Tra
             "model": model.state_dict(),
             "optimizer": opt.state_dict(),
             "scheduler": sched.state_dict(),
-            "scaler": scaler.state_dict(),
             "epoch": epoch + 1,
             "global_step": global_step
         }, ckpt_e)
