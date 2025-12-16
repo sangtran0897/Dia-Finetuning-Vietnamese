@@ -547,7 +547,7 @@ class Dia:
             prefill_len = generated_BxTxC.shape[1]
             prompt_len_inc_bos = prefill_len
             prefill_tgt_pos = torch.arange(prefill_len, device=self.device).unsqueeze(0).expand(2, -1)
-            prefill_tgt_padding_mask = (generated_BxTxC != audio_pad_value).any(dim=2)
+            prefill_tgt_padding_mask = ~generated_BxTxC.eq(audio_pad_value).all(dim=2)
 
             prefill_self_attn_mask = self._create_attn_mask(
                 prefill_tgt_padding_mask,
