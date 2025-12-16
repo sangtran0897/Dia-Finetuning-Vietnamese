@@ -528,6 +528,13 @@ class Dia:
         # 3-3. Load Audio Prompt (if provided)
         if audio_prompt_path is not None:
             audio_prompt, sr = torchaudio.load(audio_prompt_path, channels_first=True)  # C, T
+
+            # 2) Downmix stereo -> mono (mô hình Conv1d in_channels=1 chỉ nhận 1 kênh)
+            if audio_prompt.size(0) > 1:
+                # Phổ biến: trung bình hai kênh
+                audio_prompt = audio_prompt.mean(dim=0, keepdim=True)  # -> [1, T]
+                print("[Downmix] -> mono, shape:", tuple(audio_prompt.shape))
+
             if sr != 44100:  # Resample to 44.1kHz
                 audio_prompt = torchaudio.functional.resample(audio_prompt, sr, 44100)
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
