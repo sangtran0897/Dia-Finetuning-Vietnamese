@@ -652,12 +652,12 @@ class Dia:
             )
 
             generation_step_index = step - current_step
-            if audio_prompt_path is None:
-                pred_C = torch.where(
-                    generation_step_index >= delay_tensor,
-                    pred_C,
-                    audio_bos_value,
-                )
+            # if audio_prompt_path is None:
+            pred_C = torch.where(
+                generation_step_index >= delay_tensor,
+                pred_C,
+                audio_bos_value,
+            )
 
             generated_BxTxC[:, step + 1, :] = pred_C.unsqueeze(0).expand(2, -1)
 
