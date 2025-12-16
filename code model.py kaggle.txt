@@ -1,3 +1,5 @@
+!rm -rf /kaggle/working/Dia-Finetuning-Vietnamese/dia/model.py
+new_code = r"""
 import dac
 import numpy as np
 import torch
@@ -60,15 +62,6 @@ def _sample_next_token(
 
 class Dia:
     def __init__(self, config: DiaConfig, device: torch.device | None = None):
-        """Initializes the Dia model.
-
-        Args:
-            config: The configuration object for the model.
-            device: The device to load the model onto. If None, will automatically select the best available device.
-
-        Raises:
-            RuntimeError: If there is an error loading the DAC model.
-        """
         super().__init__()
         self.config = config
         self.device = device if device is not None else get_default_device()
@@ -77,20 +70,6 @@ class Dia:
 
     @classmethod
     def from_local(cls, config_path: str, checkpoint_path: str, device: torch.device | None = None) -> "Dia":
-        """Loads the Dia model from local configuration and checkpoint files.
-    
-        Args:
-            config_path: Path to the configuration JSON file.
-            checkpoint_path: Path to the model checkpoint (.safetensors or .pth).
-            device: The device to load the model onto. If None, will automatically select the best available device.
-    
-        Returns:
-            An instance of the Dia model loaded with weights and set to eval mode.
-    
-        Raises:
-            FileNotFoundError: If the config or checkpoint file is not found.
-            RuntimeError: If there is an error loading the checkpoint.
-        """
         config = DiaConfig.load(config_path)
         if config is None:
             raise FileNotFoundError(f"Config file not found at {config_path}")
@@ -149,22 +128,6 @@ class Dia:
     def from_pretrained(
         cls, model_name: str = "nari-labs/Dia-1.6B", device: torch.device | None = None
     ) -> "Dia":
-        """Loads the Dia model from a Hugging Face Hub repository.
-
-        Downloads the configuration and checkpoint files from the specified
-        repository ID and then loads the model.
-
-        Args:
-            model_name: The Hugging Face Hub repository ID (e.g., "NariLabs/Dia-1.6B").
-            device: The device to load the model onto. If None, will automatically select the best available device.
-
-        Returns:
-            An instance of the Dia model loaded with weights and set to eval mode.
-
-        Raises:
-            FileNotFoundError: If config or checkpoint download/loading fails.
-            RuntimeError: If there is an error loading the checkpoint.
-        """
         config_path = hf_hub_download(repo_id=model_name, filename="config.json")
         checkpoint_path = hf_hub_download(repo_id=model_name, filename="dia-v0_1.pth")
         return cls.from_local(config_path, checkpoint_path, device)
@@ -183,9 +146,6 @@ class Dia:
         k_padding_mask_1d: torch.Tensor,
         is_causal: bool = False,
     ) -> torch.Tensor:
-        """
-        Creates the attention mask (self or cross) mimicking JAX segment ID logic.
-        """
         B1, Tq = q_padding_mask_1d.shape
         B2, Tk = k_padding_mask_1d.shape
         assert B1 == B2, "Query and key batch dimensions must match"
@@ -215,11 +175,9 @@ class Dia:
             return mask.unsqueeze(1)  # Shape [B, 1, Tq, Tk] for broadcasting across heads
 
     def _prepare_text_input(self, text: str) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Encodes text prompt, pads, and creates attention mask and positions."""
         text_pad_value = self.config.data.text_pad_value
         max_len = self.config.data.text_length
 
-        print(f'text: {text}')
         byte_text = text.encode("utf-8")
         replaced_bytes = byte_text
 
@@ -460,12 +418,6 @@ class Dia:
         cfg_filter_top_k: int = 35,
         audio_prompt_path: str | None = None,
     ) -> np.ndarray:
-        """
-        Generates audio from a text prompt (and optional audio prompt) using the Nari model.
-
-        Returns:
-            A tensor of generated audio codes (shape: [max_tokens, num_channels]).
-        """
         num_channels = self.config.data.channels
         audio_bos_value = self.config.data.audio_bos_value
         audio_eos_value = self.config.data.audio_eos_value
@@ -529,15 +481,7 @@ class Dia:
         # 3-3. Load Audio Prompt (if provided)
         if audio_prompt_path is not None:
             audio_prompt, sr = torchaudio.load(audio_prompt_path, channels_first=True)  # C, T
-
-            # 2) Downmix stereo -> mono (mô hình Conv1d in_channels=1 chỉ nhận 1 kênh)
-            if audio_prompt.size(0) > 1:
-                # Phổ biến: trung bình hai kênh
-                audio_prompt = audio_prompt.mean(dim=0, keepdim=True)  # -> [1, T]
-                print("[Downmix] -> mono, shape:", tuple(audio_prompt.shape))
-
             if sr != 44100:  # Resample to 44.1kHz
-                print(f'sr: {sr}')
                 audio_prompt = torchaudio.functional.resample(audio_prompt, sr, 44100)
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
             audio_prompt = audio_to_codebook(self.dac_model, audio_prompt, data_config=self.config.data)
@@ -687,3 +631,10 @@ class Dia:
         )
         print("🟩 Tổng số tokens sinh ra:", generated_codes.shape[0])
         return audio.squeeze().cpu().numpy()
+"""
+with open("/kaggle/working/Dia-Finetuning-Vietnamese/dia/model.py", "w") as f:
+    f.write(new_code)
+
+
+
+print("Đã tạo model.py thành công.")
