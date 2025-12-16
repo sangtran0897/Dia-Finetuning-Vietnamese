@@ -542,6 +542,11 @@ class Dia:
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
             audio_prompt = audio_to_codebook(self.dac_model, audio_prompt, data_config=self.config.data)
             print("✅ Prompt shape:", audio_prompt.shape)
+            # Nhớ lưu số mẫu waveform trước đó (prompt_wave_T = audio_prompt.shape[-1] trước khi unsqueeze)
+            T_code = audio_prompt.shape[1]
+            fps = T_code / (audio_prompt.shape[-1] / sr)  # tokens/giây
+            print(f"[Debug] fps ≈ {fps:.2f} tokens/s; 1 token ≈ {1000/fps:.2f} ms")
+
             generated_BxTxC = torch.cat([generated_BxTxC, audio_prompt.expand(2, -1, -1)], dim=1)
 
             prefill_len = generated_BxTxC.shape[1]
