@@ -678,7 +678,7 @@ class Dia:
 
             generation_step_index = step - current_step + 1
 
-        output_codes = generated_BxTxC[:, prompt_len_inc_bos : step + 1, :]
+        output_codes = generated_BxTxC[:, 1 : step + 1, :]
 
         generated_codes = output_codes[0]
 
