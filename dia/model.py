@@ -640,7 +640,12 @@ class Dia:
             cfg_logits_CxV = cond_logits_CxV + cfg_scale * (cond_logits_CxV - uncond_logits_CxV)
 
             logits_CxV = cfg_logits_CxV.reshape((-1, V))  # C, V
-            logits_CxV[:, 1025:] = -torch.inf
+            
+            min_new_tokens = int(10 * fps)
+            ignore_eos_until = current_step + min_new_tokens
+            if step < ignore_eos_until:
+                logits_CxV[:, audio_eos_value] = -torch.inf
+
 
             # Sample next token
             pred_C = _sample_next_token(
@@ -652,12 +657,12 @@ class Dia:
             )
 
             generation_step_index = step - current_step
-            # if audio_prompt_path is None:
-            pred_C = torch.where(
-                generation_step_index >= delay_tensor,
-                pred_C,
-                audio_bos_value,
-            )
+            if audio_prompt_path is None:
+                pred_C = torch.where(
+                    generation_step_index >= delay_tensor,
+                    pred_C,
+                    audio_bos_value,
+                )
 
             generated_BxTxC[:, step + 1, :] = pred_C.unsqueeze(0).expand(2, -1)
 
