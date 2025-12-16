@@ -539,13 +539,21 @@ class Dia:
             if sr != 44100:  # Resample to 44.1kHz
                 print(f'sr: {sr}')
                 audio_prompt = torchaudio.functional.resample(audio_prompt, sr, 44100)
+                        
+            # Sau downmix/resample -> audio_prompt: [1, T_wave]
+            prompt_wave_T = audio_prompt.shape[-1]  # <-- LƯU Ở ĐÂY (ví dụ: 420864)
+            sr_resampled  = sr                      # <-- SR sau resample (ví dụ: 44100)
+
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
+             
             audio_prompt = audio_to_codebook(self.dac_model, audio_prompt, data_config=self.config.data)
             print("✅ Prompt shape:", audio_prompt.shape)
-            # Nhớ lưu số mẫu waveform trước đó (prompt_wave_T = audio_prompt.shape[-1] trước khi unsqueeze)
-            T_code = audio_prompt.shape[1]
-            fps = T_code / (audio_prompt.shape[-1] / sr)  # tokens/giây
+                    
+            T_code = audio_prompt.shape[1]              # ví dụ: 822
+            seconds_prompt = prompt_wave_T / sr_resampled  # 420864/44100 ≈ 9.55s
+            fps = T_code / seconds_prompt                 # ≈ 86.0 tokens/s
             print(f"[Debug] fps ≈ {fps:.2f} tokens/s; 1 token ≈ {1000/fps:.2f} ms")
+
 
             generated_BxTxC = torch.cat([generated_BxTxC, audio_prompt.expand(2, -1, -1)], dim=1)
 
@@ -664,12 +672,11 @@ class Dia:
 
 
             generation_step_index = step - current_step
-            if audio_prompt_path is None:
-                pred_C = torch.where(
-                    generation_step_index >= delay_tensor,
-                    pred_C,
-                    audio_bos_value,
-                )
+            pred_C = torch.where(
+                generation_step_index >= delay_tensor,
+                pred_C,
+                audio_bos_value,
+            )
 
             generated_BxTxC[:, step + 1, :] = pred_C.unsqueeze(0).expand(2, -1)
 
