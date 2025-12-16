@@ -641,8 +641,7 @@ class Dia:
 
             logits_CxV = cfg_logits_CxV.reshape((-1, V))  # C, V
             
-            min_new_tokens = int(10 * fps)
-            ignore_eos_until = current_step + min_new_tokens
+            ignore_eos_until = current_step + 10
             if step < ignore_eos_until:
                 logits_CxV[:, audio_eos_value] = -torch.inf
 
