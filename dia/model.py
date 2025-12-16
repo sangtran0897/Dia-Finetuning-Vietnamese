@@ -219,7 +219,7 @@ class Dia:
         text_pad_value = self.config.data.text_pad_value
         max_len = self.config.data.text_length
 
-        print(f'text: {text}')
+        # print(f'text: {text}')
         byte_text = text.encode("utf-8")
         replaced_bytes = byte_text
 
@@ -526,6 +526,11 @@ class Dia:
         current_step = 0
         prompt_len_inc_bos = 1  # Start with BOS length
 
+        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
+        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
+        rms = (wav**2).mean()**0.5
+        print(f'[Diag] RMS: {rms}')
+
         # 3-3. Load Audio Prompt (if provided)
         if audio_prompt_path is not None:
             audio_prompt, sr = torchaudio.load(audio_prompt_path, channels_first=True)  # C, T
@@ -699,6 +704,18 @@ class Dia:
 
         output_codes = generated_BxTxC[:, prompt_len_inc_bos : step + 1, :]
 
+        # 1) Đếm tần suất token trong phần mới sinh
+        generated_codes = output_codes[0]          # shape [T_new, C]
+        unique, counts = torch.unique(generated_codes, return_counts=True)
+        freq = dict(zip(unique.tolist(), counts.tolist()))
+        print("[Diag] token frequency (top 10):", sorted(freq.items(), key=lambda x: -x[1])[:10])
+        # Nếu bạn thấy 0 chiếm đa số, đó là “im lặng”.
+
+        # 2) In vài bước đầu để xem gating có đang ép BOS quá mức
+        for k in range(0, min(40, generated_codes.shape[0])):
+            print(f"[Step {k}] tokens:", generated_codes[k].tolist())
+        # Nếu nhiều vị trí là 1026 (BOS) hoặc 0 thì phần đầu chắc chắn “câm”.
+        
         generated_codes = output_codes[0]
 
         audio = codebook_to_audio(
