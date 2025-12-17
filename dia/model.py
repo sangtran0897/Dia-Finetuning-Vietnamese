@@ -623,7 +623,7 @@ class Dia:
             is_causal=False,
         )  # [B, 1, 1, S]
 
-        min_new_seconds = 10.0  # bạn có thể chọn 10–15s
+        min_new_seconds = 1.0  # bạn có thể chọn 10–15s
         min_new_tokens  = int(min_new_seconds * fps)
         ignore_eos_until = current_step + min_new_tokens
         for step in range(current_step, current_step + max_tokens):
