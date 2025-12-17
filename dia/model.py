@@ -712,8 +712,15 @@ class Dia:
         
         generated_codes = output_codes[0]
 
+        T_real = generated_codes.shape[0]
+
         audio = codebook_to_audio(
-            generated_codes.transpose(1, 0), self.dac_model, delay_pattern, B=1, T=max_tokens, C=num_channels
+            generated_codes.transpose(1, 0),
+            self.dac_model,
+            delay_pattern,
+            B=1,
+            T=T_real,
+            C=num_channels
         )
         
         wav = audio.squeeze().cpu().numpy()  # trước khi lưu
