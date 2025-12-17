@@ -526,11 +526,6 @@ class Dia:
         current_step = 0
         prompt_len_inc_bos = 1  # Start with BOS length
 
-        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
-        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
-        rms = (wav**2).mean()**0.5
-        print(f'[Diag] RMS: {rms}')
-
         # 3-3. Load Audio Prompt (if provided)
         if audio_prompt_path is not None:
             audio_prompt, sr = torchaudio.load(audio_prompt_path, channels_first=True)  # C, T
@@ -592,6 +587,11 @@ class Dia:
             )
 
             current_step = prefill_len - 1
+
+        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
+        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
+        rms = (wav**2).mean()**0.5
+        print(f'[Diag] RMS: {rms}')
 
         # 4. Autoregressive Generation Loop
         eos_detected_channel_0 = False
