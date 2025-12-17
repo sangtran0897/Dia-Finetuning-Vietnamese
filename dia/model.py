@@ -418,7 +418,7 @@ class Dia:
             "alloy",
         ]
         LANG2BYTE.update({ch: 30 + i for i, ch in enumerate(CHANNELS)})
-        print(f'LANG2BYTE: {LANG2BYTE}')
+        print(f'LANG2BYTE: {LANG2BYTE.items()}')
         # Thay thế tag thành mã byte
         for tag, byte_val in LANG2BYTE.items():
             pattern = f"[{tag}]".encode("ascii")  # ví dụ b"[5phutcrypto]"
