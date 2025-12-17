@@ -243,7 +243,11 @@ def decode(
 def codebook_to_audio(generated_codes: torch.Tensor, model, delay_pattern, B=1, T=2600, C=9):
     """Process a single codebook file to generate audio"""
     # Remove BOS token
-    generated_codes = generated_codes[:, 1:]
+    # generated_codes = generated_codes[:, 1:]
+
+    # Chỉ loại BOS nếu phát hiện đúng giá trị BOS ở cột đầu (nếu có truyền kèm)
+    # Ở luồng hiện tại output_codes đã loại BOS & prefill, nên thường KHÔNG cần cắt
+    # Giữ nguyên generated_codes để tránh mất đoạn đầu
 
     if generated_codes.shape[1] > T:
         generated_codes = generated_codes[:, :T]
