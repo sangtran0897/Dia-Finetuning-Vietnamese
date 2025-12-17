@@ -623,7 +623,7 @@ class Dia:
             is_causal=False,
         )  # [B, 1, 1, S]
 
-        min_new_seconds = 12.0  # bạn có thể chọn 10–15s
+        min_new_seconds = 4.0  # bạn có thể chọn 10–15s
         min_new_tokens  = int(min_new_seconds * fps)
         ignore_eos_until = current_step + min_new_tokens
         for step in range(current_step, current_step + max_tokens):
@@ -674,7 +674,7 @@ class Dia:
             pred_C = torch.where(
                 generation_step_index >= delay_tensor,
                 pred_C,
-                audio_bos_value,
+                audio_pad_value,
             )
 
             generated_BxTxC[:, step + 1, :] = pred_C.unsqueeze(0).expand(2, -1)
