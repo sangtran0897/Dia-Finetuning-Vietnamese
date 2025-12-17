@@ -547,7 +547,6 @@ class Dia:
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
              
             audio_prompt = audio_to_codebook(self.dac_model, audio_prompt, data_config=self.config.data)
-            print("✅ Prompt shape:", audio_prompt.shape)
                     
             T_code = audio_prompt.shape[1]              # ví dụ: 822
             seconds_prompt = prompt_wave_T / sr_resampled  # 420864/44100 ≈ 9.55s
@@ -587,11 +586,6 @@ class Dia:
             )
 
             current_step = prefill_len - 1
-
-        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
-        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
-        rms = (wav**2).mean()**0.5
-        print(f'[Diag] RMS: {rms}')
 
         # 4. Autoregressive Generation Loop
         eos_detected_channel_0 = False
@@ -721,5 +715,10 @@ class Dia:
         audio = codebook_to_audio(
             generated_codes.transpose(1, 0), self.dac_model, delay_pattern, B=1, T=max_tokens, C=num_channels
         )
+        
+        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
+        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
+        rms = (wav**2).mean()**0.5
+        print(f'[Diag] RMS: {rms}')
         print("🟩 Tổng số tokens sinh ra:", generated_codes.shape[0])
         return audio.squeeze().cpu().numpy()
