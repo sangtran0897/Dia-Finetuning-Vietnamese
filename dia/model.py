@@ -219,6 +219,7 @@ class Dia:
         text_pad_value = self.config.data.text_pad_value
         max_len = self.config.data.text_length
 
+        # print(f'text: {text}')
         byte_text = text.encode("utf-8")
         replaced_bytes = byte_text
 
@@ -417,6 +418,7 @@ class Dia:
             "alloy",
         ]
         LANG2BYTE.update({ch: 30 + i for i, ch in enumerate(CHANNELS)})
+        print(f'LANG2BYTE: {LANG2BYTE}')
         # Thay thế tag thành mã byte
         for tag, byte_val in LANG2BYTE.items():
             pattern = f"[{tag}]".encode("ascii")  # ví dụ b"[5phutcrypto]"
@@ -536,16 +538,30 @@ class Dia:
                 print("[Downmix] -> mono, shape:", tuple(audio_prompt.shape))
 
             if sr != 44100:  # Resample to 44.1kHz
+                print(f'sr: {sr}')
                 audio_prompt = torchaudio.functional.resample(audio_prompt, sr, 44100)
+                        
+            # Sau downmix/resample -> audio_prompt: [1, T_wave]
+            prompt_wave_T = audio_prompt.shape[-1]  # <-- LƯU Ở ĐÂY (ví dụ: 420864)
+            sr_resampled  = sr                      # <-- SR sau resample (ví dụ: 44100)
+
             audio_prompt = audio_prompt.to(self.device).unsqueeze(0)  # 1, C, T
+             
             audio_prompt = audio_to_codebook(self.dac_model, audio_prompt, data_config=self.config.data)
-            print("✅ Prompt shape:", audio_prompt.shape)
+                    
+            T_code = audio_prompt.shape[1]              # ví dụ: 822
+            seconds_prompt = prompt_wave_T / sr_resampled  # 420864/44100 ≈ 9.55s
+            fps = T_code / seconds_prompt                 # ≈ 86.0 tokens/s
+            print(f"[Debug] fps ≈ {fps:.2f} tokens/s; 1 token ≈ {1000/fps:.2f} ms")
+
+
             generated_BxTxC = torch.cat([generated_BxTxC, audio_prompt.expand(2, -1, -1)], dim=1)
 
             prefill_len = generated_BxTxC.shape[1]
             prompt_len_inc_bos = prefill_len
             prefill_tgt_pos = torch.arange(prefill_len, device=self.device).unsqueeze(0).expand(2, -1)
-            prefill_tgt_padding_mask = (generated_BxTxC != audio_pad_value).any(dim=2)
+            prefill_tgt_padding_mask = ~generated_BxTxC.eq(audio_pad_value).all(dim=2)
+            # (thay cho) (generated_BxTxC != audio_pad_value).any(dim=2)
 
             prefill_self_attn_mask = self._create_attn_mask(
                 prefill_tgt_padding_mask,
@@ -608,6 +624,9 @@ class Dia:
             is_causal=False,
         )  # [B, 1, 1, S]
 
+        min_new_seconds = 1.0  # bạn có thể chọn 10–15s
+        min_new_tokens  = int(min_new_seconds * fps)
+        ignore_eos_until = current_step + min_new_tokens
         for step in range(current_step, current_step + max_tokens):
             tgt_ids_Bx1xC = generated_BxTxC[:, step, :].unsqueeze(1)
             tgt_pos_Bx1 = torch.full(
@@ -638,7 +657,8 @@ class Dia:
             cfg_logits_CxV = cond_logits_CxV + cfg_scale * (cond_logits_CxV - uncond_logits_CxV)
 
             logits_CxV = cfg_logits_CxV.reshape((-1, V))  # C, V
-            logits_CxV[:, 1025:] = -torch.inf
+            if step < ignore_eos_until:
+                logits_CxV[:, audio_eos_value] = -torch.inf  # cấm EOS sớm
 
             # Sample next token
             pred_C = _sample_next_token(
@@ -649,13 +669,14 @@ class Dia:
                 cfg_filter_top_k=cfg_filter_top_k,
             )
 
+
+
             generation_step_index = step - current_step
-            if audio_prompt_path is None:
-                pred_C = torch.where(
-                    generation_step_index >= delay_tensor,
-                    pred_C,
-                    audio_bos_value,
-                )
+            pred_C = torch.where(
+                generation_step_index >= delay_tensor,
+                pred_C,
+                audio_pad_value,
+            )
 
             generated_BxTxC[:, step + 1, :] = pred_C.unsqueeze(0).expand(2, -1)
 
@@ -678,10 +699,34 @@ class Dia:
 
         output_codes = generated_BxTxC[:, prompt_len_inc_bos : step + 1, :]
 
+        # 1) Đếm tần suất token trong phần mới sinh
+        generated_codes = output_codes[0]          # shape [T_new, C]
+        unique, counts = torch.unique(generated_codes, return_counts=True)
+        freq = dict(zip(unique.tolist(), counts.tolist()))
+        print("[Diag] token frequency (top 10):", sorted(freq.items(), key=lambda x: -x[1])[:10])
+        # Nếu bạn thấy 0 chiếm đa số, đó là “im lặng”.
+
+        # 2) In vài bước đầu để xem gating có đang ép BOS quá mức
+        for k in range(0, min(40, generated_codes.shape[0])):
+            print(f"[Step {k}] tokens:", generated_codes[k].tolist())
+        # Nếu nhiều vị trí là 1026 (BOS) hoặc 0 thì phần đầu chắc chắn “câm”.
+        
         generated_codes = output_codes[0]
 
+        T_real = generated_codes.shape[0]
+
         audio = codebook_to_audio(
-            generated_codes.transpose(1, 0), self.dac_model, delay_pattern, B=1, T=max_tokens, C=num_channels
+            generated_codes.transpose(1, 0),
+            self.dac_model,
+            delay_pattern,
+            B=1,
+            T=T_real,
+            C=num_channels
         )
+        
+        wav = audio.squeeze().cpu().numpy()  # trước khi lưu
+        print("[Diag] waveform: min/mean/max", wav.min(), wav.mean(), wav.max())
+        rms = (wav**2).mean()**0.5
+        print(f'[Diag] RMS: {rms}')
         print("🟩 Tổng số tokens sinh ra:", generated_codes.shape[0])
         return audio.squeeze().cpu().numpy()
