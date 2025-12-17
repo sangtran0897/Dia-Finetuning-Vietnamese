@@ -29,7 +29,7 @@
     "data": {
         "text_length": 512,
         "audio_length": 1536,
-        "channels": "alloy",
+        "channels": 100,
         "text_pad_value": 0,
         "audio_eos_value": 1024,
         "audio_pad_value": 1025,
