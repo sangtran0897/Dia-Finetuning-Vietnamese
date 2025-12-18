@@ -237,6 +237,7 @@ CHANNELS = [
     "vtv24",
     "vuive123",
     "zombiev4",
+    "alloy",
 ]
 
 # Tự động ánh xạ channel → token (bắt đầu từ 30)
