@@ -251,23 +251,22 @@ test_sentences = {
 
 @dataclass
 class TrainConfig:
-    epochs: int = 1
+    epochs: int = 35                   # tăng epochs để bù batch nhỏ
     batch_size: int = 2
-    grad_accum_steps: int = 2
+    grad_accum_steps: int = 8          # effective batch = 16
     learning_rate: float = 1e-5
-    warmup_steps: int = 500
+    warmup_steps: int = 48             # ~6-7% optimizer steps
     unconditional_frac: float = 0.15
-    eval_step: int = 200
-    save_step: int = 2000
-    split_ratio: float = 0.997
-    shuffle_buffer_size: int = None  # for streaming shuffle
-    seed: int = 42                # seed for reproducibility
+    eval_step: int = 40                # eval dày hơn chút
+    save_step: int = 120
+    split_ratio: float = 0.95
+    shuffle_buffer_size: int = None
+    seed: int = 42
     runs_dir: Path = Path("runs")
-    run_name: str = "dia_finetune_cv"
-    output_dir: Path = Path(".cpkts/dia_finetune_cv ")
-    resume_from: Path = None  
-    total_steps: int = 290007
-
+    run_name: str = "dia_finetune_cv_800x10s_lowVRAM"
+    output_dir: Path = Path(".cpkts/dia_finetune_cv_800x10s_lowVRAM")
+    resume_from: Path = None
+    total_steps: int = int(math.ceil(760/2)) * 35  # 380 * 35 = 13300
 
 
 def get_args() -> argparse.Namespace:
