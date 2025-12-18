@@ -251,15 +251,15 @@ test_sentences = {
 
 @dataclass
 class TrainConfig:
-    epochs: int = 35                   # tăng epochs để bù batch nhỏ
-    batch_size: int = 2
-    grad_accum_steps: int = 8          # effective batch = 16
+    epochs: int = 20              # tùy thời gian, có thể 30 nếu loss còn giảm
+    batch_size: int = 1           # then chốt để hết OOM
+    grad_accum_steps: int = 16    # effective batch ≈ 16
     learning_rate: float = 1e-5
-    warmup_steps: int = 48             # ~6-7% optimizer steps
+    warmup_steps: int = 100       # ≈ 5–10% optimizer steps (ước tính)
     unconditional_frac: float = 0.15
-    eval_step: int = 40                # eval dày hơn chút
-    save_step: int = 120
-    split_ratio: float = 0.95
+    eval_step: int = 150          # < steps_per_epoch để vẫn có vài lần eval/epoch
+    save_step: int = 300          # hoặc dựa vào checkpoint cuối epoch
+    split_ratio: float = 0.95     # val đủ lớn để theo dõi
     shuffle_buffer_size: int = None
     seed: int = 42
     runs_dir: Path = Path("runs")
