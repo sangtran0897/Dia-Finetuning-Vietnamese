@@ -573,37 +573,37 @@ def eval_step(model, val_loader, dia_cfg, dac_model, writer, global_step):
     avg_eval_loss = sum(eval_losses) / len(eval_losses)
     writer.add_scalar('Loss/eval', avg_eval_loss.item(), global_step)
 
-    # --- Inference test sentence ---
-    try:
-        orig_dtype = next(model.parameters()).dtype
-        model = model.float()
-        dia_gen = Dia(dia_cfg, device)
-        dia_gen.model, dia_gen.dac_model = model, dac_model
+    # # --- Inference test sentence ---
+    # try:
+    #     orig_dtype = next(model.parameters()).dtype
+    #     model = model.float()
+    #     dia_gen = Dia(dia_cfg, device)
+    #     dia_gen.model, dia_gen.dac_model = model, dac_model
 
-        # ✅ Test câu hội thoại đa giọng
-        test_dialogue = "[vtv24] Em vừa đi học về, anh ạ. [duongfg] Ừ, em ăn cơm chưa? [vtv24] Em ăn rồi!"
+    #     # ✅ Test câu hội thoại đa giọng
+    #     test_dialogue = "[vtv24] Em vừa đi học về, anh ạ. [duongfg] Ừ, em ăn cơm chưa? [vtv24] Em ăn rồi!"
         
-        if len(test_dialogue) > 10:
-            try:
-                audio = dia_gen.generate(text=test_dialogue)
-                writer.add_audio("Eval/test_dialogue", audio, global_step, 44100)
-            except Exception:
-                logger.exception("Eval error during test_dialogue")
-            finally:
-                if 'audio' in locals():
-                    del audio 
+    #     if len(test_dialogue) > 10:
+    #         try:
+    #             audio = dia_gen.generate(text=test_dialogue)
+    #             writer.add_audio("Eval/test_dialogue", audio, global_step, 44100)
+    #         except Exception:
+    #             logger.exception("Eval error during test_dialogue")
+    #         finally:
+    #             if 'audio' in locals():
+    #                 del audio 
 
 
-    except Exception:
-        logger.exception("Eval error")
+    # except Exception:
+    #     logger.exception("Eval error")
 
-    finally:
-        if 'audio' in locals():
-            del audio
-        gc.collect()
-        torch.cuda.empty_cache()
-        if orig_dtype == torch.float16:
-            model = model.half()
+    # finally:
+    #     if 'audio' in locals():
+    #         del audio
+    #     gc.collect()
+    #     torch.cuda.empty_cache()
+    #     if orig_dtype == torch.float16:
+    #         model = model.half()
 
 def train(model, dia_cfg: DiaConfig, dac_model: dac.DAC, dataset, train_cfg: TrainConfig):
     """
